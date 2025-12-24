@@ -1,7 +1,7 @@
-const http = require("http");
-const nodemailer = require("nodemailer");
+import http from "http";
+import nodemailer from "nodemailer";
 
-const transporter = nodemailer.createTransporter({
+const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
   port: 465,
   secure: true,
@@ -28,4 +28,4 @@ async function sendEmail(to, subject, text, html) {
   }
 }
 
-module.exports = { sendEmail };
+export default sendEmail;

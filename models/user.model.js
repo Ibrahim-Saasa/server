@@ -31,6 +31,14 @@ const userSchema = mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    access_token: {
+      type: String,
+      default: "",
+    },
+    refresh_token: {
+      type: String,
+      default: "",
+    },
     last_login_date: {
       type: Date,
       default: "",
@@ -58,13 +66,11 @@ const userSchema = mongoose.Schema(
         ref: "order",
       },
     ],
-    forgot_password_otp: {
+    otp: {
       type: String,
-      default: null,
     },
-    forgot_password_expiry: {
+    otpExprires: {
       type: Date,
-      default: "",
     },
     role: {
       type: String,

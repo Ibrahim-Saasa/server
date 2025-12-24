@@ -1,4 +1,4 @@
-import { sendEmail } from "./emailService.js"; // Fixed: added .js extension
+import sendEmail from "./emailService.js"; // Fixed: added .js extension
 
 const sendEmailFun = async ({ sendTo, subject, text, html }) => {
   // Fixed: destructured parameters to match usage

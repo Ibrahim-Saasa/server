@@ -2,7 +2,9 @@ import UserModel from "../models/user.model.js";
 import bcryptjs from "bcryptjs"; // Fixed: was "bcruptjs"
 import jwt from "jsonwebtoken";
 import sendEmailFun from "../config/sendEmail.js";
-import verificationEmail from "../config/verifyEmailTemplate.js"; // Add this import
+import verificationEmail from "../utils/verifyEmailTemplate.js"; // Add this import
+import generateAccessToken from "../utils/generatedAccessToken.js";
+import generateRefreshToken from "../utils/generatedRefreshToken.js";
 
 export async function registerUserController(request, response) {
   try {
@@ -52,6 +54,11 @@ export async function registerUserController(request, response) {
       html: emailHTML,
     });
 
+    const token = jwt.sign(
+      { id: user._id, email: user.email },
+      process.env.JSON_WEB_TOKEN_SECRET_KEY
+    );
+
     if (emailResult.success) {
       return response.status(200).json({
         message:
@@ -72,6 +79,147 @@ export async function registerUserController(request, response) {
         success: false,
       });
     }
+  } catch (error) {
+    return response.status(500).json({
+      message: error.message || error,
+      error: true,
+      success: false,
+    });
+  }
+}
+
+export async function verifyEmailController(request, response) {
+  try {
+    const { email, verifyCode } = request.body;
+
+    const user = await UserModel.findOne({ email: email });
+    if (!user) {
+      return response.status(400).json({
+        message: "User not found.",
+        error: true,
+        success: false,
+      });
+    }
+    const isCodeValid = user.verifyCode === verifyCode;
+    const isCodeExpired = new Date() > user.verifyCodeExpiry;
+
+    if (isCodeValid && !isCodeExpired) {
+      user.isVerified = true;
+      user.verifyCode = null;
+      user.verifyCodeExpiry = null;
+      await user.save();
+      return response.status(200).json({
+        message: "Email verified successfully!",
+        error: false,
+        success: true,
+      });
+    } else if (isCodeExpired) {
+      return response.status(400).json({
+        message: "Verification code has expired.",
+        error: true,
+        success: false,
+      });
+    } else {
+      return response.status(400).json({
+        message: "Invalid verification code.",
+        error: true,
+        success: false,
+      });
+    }
+  } catch (error) {
+    return response.status(500).json({
+      message: error.message || error,
+      error: true,
+      success: false,
+    });
+  }
+}
+
+export async function loginUserController(request, response) {
+  try {
+    const { email, password } = request.body;
+    const user = await UserModel.findOne({ email: email });
+
+    if (user.status !== "Active") {
+      return response.status(400).json({
+        message: "Contact support to activate your account.",
+        error: true,
+        success: false,
+      });
+    }
+
+    const isPasswordMatch = await bcryptjs.compare(password, user.password);
+    if (!isPasswordMatch) {
+      return response.status(400).json({
+        message: "Invalid credentials.",
+        error: true,
+        success: false,
+      });
+    }
+
+    const accessToken = await generateAccessToken(user._id);
+    const refreshToken = await generateRefreshToken(user._id);
+
+    const updatedUser = await UserModel.findByIdAndUpdate(
+      user._id,
+      {
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        last_login_date: new Date(),
+      },
+      { new: true }
+    );
+
+    const cookiesOptions = {
+      httpOnly: true,
+      secure: true,
+      sameSite: "None",
+    };
+    response.cookie("accessToken", accessToken, cookiesOptions);
+    response.cookie("refreshToken", refreshToken, cookiesOptions);
+
+    return response.status(200).json({
+      message: "Login successful.",
+      error: false,
+      success: true,
+      data: {
+        user: updatedUser,
+        accessToken: accessToken,
+        refreshToken: refreshToken,
+      },
+    });
+  } catch (error) {
+    return response.status(500).json({
+      message: error.message || error,
+      error: true,
+      success: false,
+    });
+  }
+}
+
+export async function logoutUserController(request, response) {
+  try {
+    const userId = request.userId;
+    await UserModel.findByIdAndUpdate(userId, {
+      access_token: null,
+      refresh_token: null,
+    });
+    const cookiesOptions = {
+      httpOnly: true,
+      secure: true,
+      sameSite: "None",
+    };
+    response.clearCookie("accessToken", cookiesOptions);
+    response.clearCookie("refreshToken", cookiesOptions);
+
+    const removedTokens = await UserModel.findByIdAndUpdate(userId, {
+      refresh_token: "",
+    });
+    return response.status(200).json({
+      message: "Logout successful.",
+      error: false,
+      success: true,
+    });
   } catch (error) {
     return response.status(500).json({
       message: error.message || error,
