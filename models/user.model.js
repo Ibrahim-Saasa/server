@@ -19,13 +19,9 @@ const userSchema = mongoose.Schema(
       type: String,
       default: "",
     },
-    movile: {
+    mobile: {
       type: String,
       default: null,
-    },
-    name: {
-      type: String,
-      required: [true, "Provide name"],
     },
     verify_email: {
       type: Boolean,
@@ -66,12 +62,6 @@ const userSchema = mongoose.Schema(
         ref: "order",
       },
     ],
-    otp: {
-      type: String,
-    },
-    otpExprires: {
-      type: Date,
-    },
     role: {
       type: String,
       enum: ["ADMIN", "USER"],
@@ -81,17 +71,13 @@ const userSchema = mongoose.Schema(
       type: String,
       default: null,
     },
-    isVerified: {
-      type: Boolean,
-      default: false,
-    },
     verifyCodeExpiry: {
       type: Date,
       default: null,
     },
   },
   {
-    timeStamps: true,
+    timestamps: true, // Fixed typo: was "timeStamps"
   }
 );
 
