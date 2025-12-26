@@ -9,6 +9,9 @@ import {
   updateUserDetails,
   forgotPasswordController,
   resetPasswordController,
+  resetUserPasswordController,
+  refreshTokenController,
+  getAllUsersController,
 } from "../controllers/user.controller.js";
 import auth from "../middleware/auth.js";
 import upload from "../middleware/multer.js";
@@ -29,5 +32,8 @@ userRouter.delete("/deleteImage", auth, removeImage);
 userRouter.put("/:id", auth, updateUserDetails);
 userRouter.post("/forgotPassword", forgotPasswordController);
 userRouter.post("/forgotPasswordOtp", resetPasswordController);
+userRouter.post("/resetPassword", resetUserPasswordController);
+userRouter.post("/refreshToken", refreshTokenController);
+userRouter.get("/userDetails", auth, getAllUsersController);
 
 export default userRouter;

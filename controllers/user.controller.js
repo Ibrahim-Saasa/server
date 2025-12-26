@@ -515,3 +515,126 @@ export async function resetPasswordController(request, response) {
     });
   }
 }
+
+export async function resetUserPasswordController(request, response) {
+  try {
+    const { email, newPassword, confirmPassword } = request.body;
+
+    if (!email || !newPassword || !confirmPassword) {
+      return response.status(400).json({
+        message: "Email, new password, and confirm password are required",
+        error: true,
+        success: false,
+      });
+    }
+
+    const user = await UserModel.findOne({ email: email });
+    if (!user) {
+      return response.status(404).json({
+        message: "User not found",
+        error: true,
+        success: false,
+      });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return response.status(400).json({
+        message: "Passwords do not match",
+        error: true,
+        success: false,
+      });
+    }
+
+    const salt = await bcryptjs.genSalt(12);
+    const hashPassword = await bcryptjs.hash(newPassword, salt);
+
+    user.password = hashPassword;
+    await user.save();
+
+    return response.status(200).json({
+      message: "Password reset successfully",
+      success: true,
+    });
+  } catch (error) {
+    return response.status(500).json({
+      message: error.message || error,
+      error: true,
+      success: false,
+    });
+  }
+}
+
+export async function refreshTokenController(request, response) {
+  try {
+    const refreshToken =
+      request.cookies.refreshToken ||
+      request?.headers?.authorization?.split(" ")[1];
+
+    if (!refreshToken) {
+      return response.status(401).json({
+        message: "Provide Refresh Token",
+        error: true,
+        success: false,
+      });
+    }
+
+    const verifyToken = await jwt.verify(
+      refreshToken,
+      process.env.JSON_WEB_REFRESH_SECRET_KEY
+    );
+
+    if (!verifyToken || !verifyToken.id) {
+      return response.status(401).json({
+        message: "Invalid Refresh Token",
+        error: true,
+        success: false,
+      });
+    }
+
+    const userId = verifyToken?._id;
+
+    const newAccessToken = await generateAccessToken(userId);
+
+    const cookiesOptions = {
+      httpOnly: true,
+      secure: true,
+      sameSite: "None",
+    };
+    response.cookie("accessToken", newAccessToken, cookiesOptions);
+
+    return response.status(200).json({
+      message: "Access token refreshed successfully",
+      error: false,
+      success: true,
+      data: {
+        accessToken: newAccessToken,
+      },
+    });
+  } catch (error) {
+    return response.status(500).json({
+      message: error.message || error,
+      error: true,
+      success: false,
+    });
+  }
+}
+
+export async function getAllUsersController(request, response) {
+  try {
+    const userId = request.userId;
+    const users = await UserModel.findById(userId).select(
+      "-password -refresh_token "
+    );
+    return response.status(200).json({
+      message: "Users retrieved successfully",
+      success: true,
+      data: users,
+    });
+  } catch (error) {
+    return response.status(500).json({
+      message: error.message || error,
+      error: true,
+      success: false,
+    });
+  }
+}
