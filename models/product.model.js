@@ -32,8 +32,12 @@ const ProductSchema = new Schema(
       default: "",
     },
     category: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
       ref: "Category",
+      default: "",
+    },
+    categoryName: {
+      type: String,
       required: true,
       default: "",
     },
