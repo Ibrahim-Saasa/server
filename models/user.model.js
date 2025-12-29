@@ -19,7 +19,7 @@ const userSchema = mongoose.Schema(
       type: String,
       default: "",
     },
-    mobile: {
+    phone: {
       type: String,
       default: null,
     },

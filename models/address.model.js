@@ -20,7 +20,7 @@ const addressSchema = mongoose.Schema(
     country: {
       type: String,
     },
-    mobile: {
+    phone: {
       type: Number,
       default: null,
     },

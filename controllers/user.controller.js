@@ -1,8 +1,8 @@
 import UserModel from "../models/user.model.js";
-import bcryptjs from "bcryptjs"; // Fixed: was "bcruptjs"
+import bcryptjs from "bcryptjs";
 import jwt from "jsonwebtoken";
 import sendEmailFun from "../config/sendEmail.js";
-import verificationEmail from "../utils/verifyEmailTemplate.js"; // Add this import
+import verificationEmail from "../utils/verifyEmailTemplate.js";
 import generateAccessToken from "../utils/generatedAccessToken.js";
 import generateRefreshToken from "../utils/generatedRefreshToken.js";
 import { v2 as cloudinary } from "cloudinary";
@@ -19,82 +19,53 @@ cloudinary.config({
   secure: true,
 });
 
-export async function registerUserController(request, response) {
+export const registerUserController = async (req, res) => {
+  console.log("REGISTER CONTROLLER HIT");
+
   try {
-    let user;
-    const { name, email, password } = request.body;
+    const { name, email, phone, password } = req.body;
 
-    if (!name || !email || !password) {
-      return response.status(400).json({
-        message: "provide email, name, password",
-        error: true,
+    // 1. Validation (400, not 404)
+    if (!name || !email || !phone || !password) {
+      return res.status(400).json({
         success: false,
+        message: "All fields are required",
       });
     }
 
-    user = await UserModel.findOne({ email: email });
-    if (user) {
-      return response.json({
-        message: "This Email Is Already Registered!",
-        error: true,
+    // 2. Check existing user (409 conflict)
+    const existingUser = await UserModel.findOne({ email });
+    if (existingUser) {
+      return res.status(409).json({
         success: false,
+        message: "User already exists",
       });
     }
 
-    const verifyCode = Math.floor(100000 + Math.random() * 900000).toString();
-
-    const salt = await bcryptjs.genSalt(10);
-    const hashPassword = await bcryptjs.hash(password, salt);
-
-    user = new UserModel({
-      email: email,
-      password: hashPassword,
-      name: name,
-      verifyCode: verifyCode,
-      verify_email: false, // Use verify_email only
-      verifyCodeExpiry: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes expiry
+    // 3. Create user
+    const user = await UserModel.create({
+      name,
+      email,
+      phone,
+      password,
     });
 
-    await user.save();
-
-    // Generate HTML email template
-    const emailHTML = verificationEmail(name, verifyCode);
-
-    const emailResult = await sendEmailFun({
-      sendTo: email,
-      subject: "Verify Your Email - Ecommerce App",
-      text: `Hello ${name}, your verification code is: ${verifyCode}`,
-      html: emailHTML,
+    // 4. SUCCESS RESPONSE (THIS WAS MISSING)
+    return res.status(201).json({
+      success: true,
+      message: "User registered successfully",
+      userId: user._id,
     });
-
-    if (emailResult.success) {
-      return response.status(200).json({
-        message:
-          "Registration successful! Please check your email for verification code.",
-        error: false,
-        success: true,
-        data: {
-          userId: user._id,
-          email: user.email,
-          name: user.name,
-        },
-      });
-    } else {
-      await UserModel.deleteOne({ _id: user._id });
-      return response.status(500).json({
-        message: "Failed to send verification email. Please try again.",
-        error: true,
-        success: false,
-      });
-    }
   } catch (error) {
-    return response.status(500).json({
-      message: error.message || error,
-      error: true,
+    console.error("Register error:", error);
+
+    // 5. Real server error
+    return res.status(500).json({
       success: false,
+      message: error.message,
     });
   }
-}
+};
 
 export async function verifyEmailController(request, response) {
   try {
@@ -365,7 +336,7 @@ export async function removeImage(request, response) {
 export async function updateUserDetails(request, response) {
   try {
     const userId = request.userId;
-    const { name, mobile, email, password } = request.body;
+    const { name, phone, email, password } = request.body;
 
     const userExist = await UserModel.findById(userId);
     if (!userExist) {
@@ -389,7 +360,7 @@ export async function updateUserDetails(request, response) {
       userId,
       {
         name,
-        mobile,
+        phone,
         email,
         verify_email:
           email !== userExist.email ? false : userExist.verify_email,
