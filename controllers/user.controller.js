@@ -19,53 +19,92 @@ cloudinary.config({
   secure: true,
 });
 
-export const registerUserController = async (req, res) => {
+export async function registerUserController(request, response) {
   console.log("REGISTER CONTROLLER HIT");
 
   try {
-    const { name, email, phone, password } = req.body;
+    const { name, email, phone, password } = request.body;
 
-    // 1. Validation (400, not 404)
+    // 1. Validation
     if (!name || !email || !phone || !password) {
-      return res.status(400).json({
+      return response.status(400).json({
         success: false,
+        error: true,
         message: "All fields are required",
       });
     }
 
-    // 2. Check existing user (409 conflict)
+    // 2. Check existing user
     const existingUser = await UserModel.findOne({ email });
     if (existingUser) {
-      return res.status(409).json({
+      return response.status(409).json({
         success: false,
+        error: true,
         message: "User already exists",
       });
     }
 
-    // 3. Create user
-    const user = await UserModel.create({
+    // 3. Generate verification code
+    const verifyCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // 4. Hash password
+    const salt = await bcryptjs.genSalt(10);
+    const hashPassword = await bcryptjs.hash(password, salt);
+
+    // 5. Create user with verification code
+    const user = new UserModel({
       name,
       email,
       phone,
-      password,
+      password: hashPassword,
+      verifyCode: verifyCode,
+      verify_email: false,
+      verifyCodeExpiry: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
     });
 
-    // 4. SUCCESS RESPONSE (THIS WAS MISSING)
-    return res.status(201).json({
-      success: true,
-      message: "User registered successfully",
-      userId: user._id,
+    await user.save();
+
+    // 6. Generate HTML email template
+    const emailHTML = verificationEmail(name, verifyCode);
+
+    // 7. Send verification email
+    const emailResult = await sendEmailFun({
+      sendTo: email,
+      subject: "Verify Your Email - Ecommerce App",
+      text: `Hello ${name}, your verification code is: ${verifyCode}`,
+      html: emailHTML,
     });
+
+    if (emailResult.success) {
+      return response.status(201).json({
+        success: true,
+        error: false,
+        message:
+          "Registration successful! Please check your email for verification code.",
+        data: {
+          userId: user._id,
+          email: user.email,
+          name: user.name,
+        },
+      });
+    } else {
+      // If email fails, delete the user
+      await UserModel.deleteOne({ _id: user._id });
+      return response.status(500).json({
+        success: false,
+        error: true,
+        message: "Failed to send verification email. Please try again.",
+      });
+    }
   } catch (error) {
     console.error("Register error:", error);
-
-    // 5. Real server error
-    return res.status(500).json({
+    return response.status(500).json({
       success: false,
-      message: error.message,
+      error: true,
+      message: error.message || "Internal server error",
     });
   }
-};
+}
 
 export async function verifyEmailController(request, response) {
   try {

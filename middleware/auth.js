@@ -4,11 +4,15 @@ const auth = async (request, response, next) => {
   console.log("Auth middleware triggered");
 
   try {
-    const token =
+    var token =
       request.cookies.accessToken ||
       request?.headers?.authorization?.split(" ")[1];
 
     console.log("Token found:", token ? "Yes" : "No");
+
+    if (!token) {
+      token = request.query.token;
+    }
 
     if (!token) {
       console.log("❌ No token found");
