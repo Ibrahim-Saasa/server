@@ -1,53 +1,36 @@
 import jwt from "jsonwebtoken";
 
-const auth = async (request, response, next) => {
-  console.log("Auth middleware triggered");
-
+const auth = (req, res, next) => {
   try {
-    const token =
-      request.cookies.accessToken ||
-      request?.headers?.authorization?.split(" ")[1];
+    const authHeader = req.headers.authorization;
 
-    console.log("Token found:", token ? "Yes" : "No");
-
-    // if (!token) {
-    //   token = request.query.token;
-    // }
-
-    if (!token) {
-      console.log("❌ No token found");
-      return response.status(401).json({
-        message: "Provide Token",
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({
+        message: "No token provided",
         error: true,
         success: false,
       });
     }
 
-    const decode = await jwt.verify(
-      token,
-      process.env.JSON_WEB_TOKEN_SECRET_KEY
-    );
+    const token = authHeader.split(" ")[1];
 
-    if (!decode || !decode.id) {
-      console.log("❌ Invalid Token Payload");
-      return response.status(401).json({
-        message: "Invalid Token",
-        error: true,
-        success: false,
-      });
-    }
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.userId = decoded.id; // ✅ Changed from req.user to req.userId (to match your controller)
 
-    console.log("Decoded Token ID:", decode.id);
-
-    // Set the userId for the controller to use
-    request.userId = decode.id;
-
-    // Move to the next function (the controller)
     next();
   } catch (error) {
-    console.log("❌ Auth Error:", error.message);
-    return response.status(500).json({
-      message: error.message || "You have not login",
+    console.log("Auth Error:", error.message);
+
+    if (error.name === "TokenExpiredError") {
+      return res.status(401).json({
+        message: "Token expired",
+        error: true,
+        success: false,
+      });
+    }
+
+    return res.status(401).json({
+      message: "Invalid token",
       error: true,
       success: false,
     });

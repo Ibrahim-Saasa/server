@@ -275,39 +275,63 @@ export async function logoutUserController(request, response) {
 
 export async function userProfileController(request, response) {
   try {
+    console.log("=== Cloudinary Config Check ===");
+    console.log("Cloud Name:", process.env.cloudinary_Config_Cloud_Name);
+    console.log("API Key:", process.env.cloudinary_Config_api_key);
+    console.log(
+      "API Secret exists:",
+      !!process.env.cloudinary_Config_api_secret
+    );
     const userId = request.userId;
-    const files = request.files; // Use request.files for .array()
+    const file = request.file; // ✅ Changed from files to file (singular)
 
-    if (!files || files.length === 0) {
-      return response.status(400).json({ message: "No files uploaded" });
+    console.log("=== User Profile Upload ===");
+    console.log("User ID:", userId);
+    console.log("File received:", file ? file.filename : "No file");
+
+    if (!file) {
+      return response.status(400).json({
+        message: "No file uploaded",
+        error: true,
+        success: false,
+      });
     }
 
-    const imagesArr = [];
+    console.log("Uploading to Cloudinary...");
 
-    // Use for...of for cleaner async/await handling
-    for (const file of files) {
-      const result = await cloudinary.uploader.upload(file.path, {
-        folder: "profile_pics",
-      });
+    // Upload single file to Cloudinary
+    const result = await cloudinary.uploader.upload(file.path, {
+      folder: "profile_pics",
+    });
 
-      imagesArr.push(result.secure_url);
+    console.log("Cloudinary upload successful:", result.secure_url);
 
-      // Delete from local 'upload' folder after Cloudinary upload
-      if (fs.existsSync(file.path)) {
-        fs.unlinkSync(file.path);
-      }
+    // Delete from local 'upload' folder after Cloudinary upload
+    if (fs.existsSync(file.path)) {
+      fs.unlinkSync(file.path);
     }
 
     // Update the user model with the new image URL
-    await UserModel.findByIdAndUpdate(userId, { avatar: imagesArr[0] });
+    const updatedUser = await UserModel.findByIdAndUpdate(
+      userId,
+      { avatar: result.secure_url },
+      { new: true }
+    );
+
+    console.log("User updated successfully");
 
     return response.status(200).json({
-      message: "Profile updated",
+      message: "Profile image updated successfully",
       _id: userId,
-      profileImage: imagesArr[0],
+      profileImage: result.secure_url,
       success: true,
+      error: false,
     });
   } catch (error) {
+    console.error("=== User Profile Upload Error ===");
+    console.error("Error:", error.message);
+    console.error("Stack:", error.stack);
+
     return response.status(500).json({
       message: error.message || error,
       error: true,

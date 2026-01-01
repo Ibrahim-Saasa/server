@@ -25,7 +25,7 @@ userRouter.get("/logout", auth, logoutUserController);
 userRouter.put(
   "/userProfile",
   auth,
-  upload.array("avatar"),
+  upload.single("avatar"),
   userProfileController
 );
 userRouter.delete("/deleteImage", auth, removeImage);
