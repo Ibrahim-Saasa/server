@@ -399,43 +399,63 @@ export async function removeImage(request, response) {
 export async function updateUserDetails(request, response) {
   try {
     const userId = request.userId;
-    const { name, phone, email, password } = request.body;
+    const {
+      name,
+      phone,
+      email,
+      password,
+      dateOfBirth, // ✅ Add new fields
+      gender,
+      nationality,
+      address,
+    } = request.body;
 
     const userExist = await UserModel.findById(userId);
     if (!userExist) {
-      return response.status(404).json({ message: "User not found" });
+      return response.status(404).json({
+        message: "User not found",
+        error: true,
+        success: false,
+      });
     }
 
-    // --- EVERYTHING BELOW MUST BE OUTSIDE THE IF (!userExist) BLOCK ---
-
+    // Check if email is being changed
     let verifyCode = "";
     if (email && email !== userExist.email) {
       verifyCode = Math.floor(100000 + Math.random() * 900000).toString();
     }
 
+    // Hash password if provided
     let hashPassword = userExist.password;
     if (password) {
       const salt = await bcryptjs.genSalt(10);
       hashPassword = await bcryptjs.hash(password, salt);
     }
 
-    const updatedData = await UserModel.findByIdAndUpdate(
-      userId,
-      {
-        name,
-        phone,
-        email,
-        verify_email:
-          email !== userExist.email ? false : userExist.verify_email,
-        password: hashPassword,
-        verifyCode: verifyCode || null,
-        verifyCodeExpiry: verifyCode
-          ? new Date(Date.now() + 10 * 60 * 1000)
-          : null,
-      },
-      { new: true }
-    );
+    // Prepare update data - only include fields that were sent
+    const updateData = {
+      ...(name && { name }),
+      ...(phone && { phone }),
+      ...(email && { email }),
+      ...(password && { password: hashPassword }),
+      ...(dateOfBirth && { dateOfBirth }), // ✅ Add new fields
+      ...(gender && { gender }),
+      ...(nationality && { nationality }),
+      ...(address && { address }),
+    };
 
+    // Handle email change verification
+    if (email && email !== userExist.email) {
+      updateData.verify_email = false;
+      updateData.verifyCode = verifyCode;
+      updateData.verifyCodeExpiry = new Date(Date.now() + 10 * 60 * 1000);
+    }
+
+    const updatedData = await UserModel.findByIdAndUpdate(userId, updateData, {
+      new: true,
+    }).select("-password -refresh_token");
+
+    // Send verification email if email changed
     if (email && email !== userExist.email) {
       await sendEmailFun({
         sendTo: email,
@@ -445,13 +465,19 @@ export async function updateUserDetails(request, response) {
       });
     }
 
+    // ✅ Update context with new user data
     return response.status(200).json({
       message: "User updated successfully",
       success: true,
+      error: false,
       data: updatedData,
     });
   } catch (error) {
-    return response.status(500).json({ message: error.message, error: true });
+    return response.status(500).json({
+      message: error.message,
+      error: true,
+      success: false,
+    });
   }
 }
 
@@ -657,12 +683,84 @@ export async function getAllUsersController(request, response) {
   try {
     const userId = request.userId;
     const users = await UserModel.findById(userId).select(
-      "-password -refresh_token "
+      "-password -refresh_token"
     );
     return response.status(200).json({
       message: "Users retrieved successfully",
       success: true,
       data: users,
+    });
+  } catch (error) {
+    return response.status(500).json({
+      message: error.message || error,
+      error: true,
+      success: false,
+    });
+  }
+}
+// Add this to user.controller.js
+export async function changePasswordController(request, response) {
+  try {
+    const userId = request.userId; // From auth middleware
+    const { oldPassword, newPassword, confirmPassword } = request.body;
+
+    // Validation
+    if (!oldPassword || !newPassword || !confirmPassword) {
+      return response.status(400).json({
+        message: "All fields are required",
+        error: true,
+        success: false,
+      });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return response.status(400).json({
+        message: "New passwords do not match",
+        error: true,
+        success: false,
+      });
+    }
+
+    if (newPassword.length < 8) {
+      return response.status(400).json({
+        message: "Password must be at least 8 characters",
+        error: true,
+        success: false,
+      });
+    }
+
+    // Find user
+    const user = await UserModel.findById(userId);
+    if (!user) {
+      return response.status(404).json({
+        message: "User not found",
+        error: true,
+        success: false,
+      });
+    }
+
+    // ✅ Verify old password
+    const isPasswordMatch = await bcryptjs.compare(oldPassword, user.password);
+    if (!isPasswordMatch) {
+      return response.status(400).json({
+        message: "Old password is incorrect",
+        error: true,
+        success: false,
+      });
+    }
+
+    // Hash new password
+    const salt = await bcryptjs.genSalt(10);
+    const hashPassword = await bcryptjs.hash(newPassword, salt);
+
+    // Update password
+    user.password = hashPassword;
+    await user.save();
+
+    return response.status(200).json({
+      message: "Password changed successfully",
+      success: true,
+      error: false,
     });
   } catch (error) {
     return response.status(500).json({

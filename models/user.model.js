@@ -23,6 +23,23 @@ const userSchema = mongoose.Schema(
       type: String,
       default: null,
     },
+    dateOfBirth: {
+      type: Date,
+      default: null,
+    },
+    gender: {
+      type: String,
+      enum: ["Male", "Female", "Other", null],
+      default: null,
+    },
+    nationality: {
+      type: String,
+      default: null,
+    },
+    address: {
+      type: String,
+      default: null,
+    },
     verify_email: {
       type: Boolean,
       default: false,

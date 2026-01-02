@@ -12,6 +12,7 @@ import {
   resetUserPasswordController,
   refreshTokenController,
   getAllUsersController,
+  changePasswordController,
 } from "../controllers/user.controller.js";
 import auth from "../middleware/auth.js";
 import upload from "../middleware/multer.js";
@@ -35,5 +36,6 @@ userRouter.post("/forgotPasswordOtp", resetPasswordController);
 userRouter.post("/resetPassword", resetUserPasswordController);
 userRouter.post("/refreshToken", refreshTokenController);
 userRouter.get("/userDetails", auth, getAllUsersController);
+userRouter.put("/changePassword", auth, changePasswordController);
 
 export default userRouter;

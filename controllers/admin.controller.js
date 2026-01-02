@@ -70,3 +70,52 @@ export const adminLoginController = async (req, res) => {
     });
   }
 };
+
+export const getAdminProfile = async (req, res) => {
+  try {
+    const admin = await Admin.findById(req.admin.id).select("-password");
+
+    res.status(200).json({
+      success: true,
+      admin,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch admin profile",
+    });
+  }
+};
+
+export const updateAdminProfile = async (req, res) => {
+  try {
+    const { name, phone, age, country } = req.body;
+
+    // ✅ FIXED: Use req.admin._id instead of req.admin.id
+    const updatedAdmin = await Admin.findByIdAndUpdate(
+      req.admin._id, // ✅ Changed from req.admin.id
+      { name, phone, age, country },
+      { new: true, runValidators: true }
+    ).select("-password");
+
+    if (!updatedAdmin) {
+      return res.status(404).json({
+        success: false,
+        message: "Admin not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Profile updated successfully",
+      admin: updatedAdmin,
+    });
+  } catch (error) {
+    console.error("Profile update error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Profile update failed",
+      error: error.message,
+    });
+  }
+};

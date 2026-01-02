@@ -1,19 +1,17 @@
 import { Router } from "express";
-import { adminLoginController } from "../controllers/admin.controller.js";
-import auth from "../middleware/auth.js";
-import upload from "../middleware/multer.js";
+import {
+  adminLoginController,
+  getAdminProfile,
+  updateAdminProfile,
+} from "../controllers/admin.controller.js";
 import { adminAuth } from "../middleware/adminAuth.middleware.js";
 import { requireRole } from "../middleware/role.middleware.js";
 
 const adminRouter = Router();
 
 adminRouter.post("/login", adminLoginController);
-adminRouter.get("/profile", adminAuth, (req, res) => {
-  res.json({
-    success: true,
-    admin: req.admin,
-  });
-});
+adminRouter.get("/me", adminAuth, getAdminProfile);
+adminRouter.put("/profile", adminAuth, updateAdminProfile); // ✅ Added adminAuth
 adminRouter.get(
   "/dashboard-stats",
   adminAuth,

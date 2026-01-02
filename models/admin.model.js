@@ -25,6 +25,24 @@ const adminSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    name: {
+      type: String,
+      default: "",
+    },
+    phone: {
+      type: String,
+      default: "",
+    },
+    age: {
+      type: Number,
+    },
+    country: {
+      type: String,
+      default: "",
+    },
+    avatar: {
+      type: String, // later: image URL
+    },
   },
   {
     timestamps: true, // adds createdAt & updatedAt
